@@ -20,14 +20,14 @@ export class RuleParser {
         if (trimmedLine.length == 0) {
             return null;
         }
-        const match = trimmedLine.match(/^<?([^<>]+)>?\s*::=\s*(\S.*)$/)
+        const match = trimmedLine.match(/^([^<>]+)\s*=\s*(\S.*)$/)
         if (!match) {
             throw new Error(`can not parse document line:{$lineNumber}`);
         }
         const name = match[1].trim();
         const fragment = match[2];
         try {
-            const r = this.parseAlternationNode(fragment, false);
+            const r = this.parseAlternationNode(fragment, undefined);
             if (r.fragment.trim()) {
                 throw new Error(`can not parse document line:{$lineNumber}`);
             }
@@ -40,7 +40,7 @@ export class RuleParser {
         }
     }
 
-    private parseAlternationNode(inputFragment: string, hasOpenBracket: boolean): { node: RuleNode, fragment: string } {
+    private parseAlternationNode(inputFragment: string, closeBracket?: string): { node: RuleNode, fragment: string } {
         const alternations = [[]] as RuleNode[][];
         let nodes = alternations[0] as RuleNode[];
         let fragment = inputFragment;
@@ -57,7 +57,7 @@ export class RuleParser {
                 continue;
             }
 
-            if (fragment.match(/^\[/)) {
+            if (fragment.match(/^\/.*\//)) {
                 // character
                 const r = this.parseCharacterNode(fragment);
                 fragment = r.fragment;
@@ -88,20 +88,46 @@ export class RuleParser {
 
             if (fragment.match(/^[(]/)) {
                 // alternation or group
-                const r = this.parseAlternationNode(fragment.substr(1), true);
+                const r = this.parseAlternationNode(fragment.substr(1), ")");
                 nodes.push(r.node);
                 fragment = r.fragment;
                 continue;
             }
 
-            if (fragment.match(/^[)]/)) {
-                // close alternation Node
-                if (!hasOpenBracket) {
+            if (fragment.match(/^[/[]/)) {
+                // option
+                const r = this.parseAlternationNode(fragment.substr(1), "]");
+                nodes.push({
+                    type: "option",
+                    node: r.node,
+                });
+                fragment = r.fragment;
+                continue;
+            }
+
+            if (fragment.match(/^[{]/)) {
+                // repeat
+                const r = this.parseAlternationNode(fragment.substr(1), "}");
+                nodes.push({
+                    type: "repeat",
+                    node: r.node,
+                });
+                fragment = r.fragment;
+                continue;
+            }
+
+            if (fragment.match(/^[)\]}]/)) {
+                // close group Node
+                if (!closeBracket) {
+                    throw new Error("cannot parse");
+                }
+                if (fragment[0] != closeBracket) {
                     throw new Error("cannot parse");
                 }
                 fragment = fragment.substr(1);
                 break;
             }
+
         }
 
         if (alternations.length == 1) {
@@ -180,11 +206,11 @@ export class RuleParser {
                 text += fragment[i]
             } else {
                 switch (fragment[i]) {
-                    case "]":
+                    case "/":
                         return {
                             node: {
-                                type: "character",
-                                regex: new RegExp("[" + text + "]"),
+                                type: "regex",
+                                regex: new RegExp(text),
                             },
                             fragment: fragment.substr(i + 1),
                         }

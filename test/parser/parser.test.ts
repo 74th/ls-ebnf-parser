@@ -3,12 +3,12 @@ import { RuleParser } from "../../src/ruleparser";
 import * as assert from "assert"
 import * as fs from "fs/promises";
 import { parse } from "path";
-import { AlternationRuleNode, CharacterRuleNode, GroupRuleNode, StringRuleNode } from "../../src/model/rule";
+import { AlternationRuleNode, RegexRuleNode, GroupRuleNode, StringRuleNode, OptionRuleNode, RepeatRuleNode } from "../../src/model/rule";
 
 describe("parseRules", () => {
     it("parse simple string", async () => {
         const parser = new RuleParser();
-        const rule = parser.Parse("name ::= \"text1\" \"text2\"")
+        const rule = parser.Parse("name = \"text1\" \"text2\"")
 
         assert.strictEqual(rule.length, 1);
         const rule0 = rule[0];
@@ -27,25 +27,25 @@ describe("parseRules", () => {
 
     it("parse character node", async () => {
         const parser = new RuleParser();
-        const rule = parser.Parse("name ::= [0-9] [A-Z]")
+        const rule = parser.Parse("name = /[0-9]/ /[A-Z]/")
 
         assert.strictEqual(rule.length, 1);
         const rule0 = rule[0];
         assert.strictEqual(rule0.root.type, "group");
 
         const root = rule0.root as GroupRuleNode;
-        assert.strictEqual(root.nodes[0].type, "character")
-        const node0 = root.nodes[0] as CharacterRuleNode;
+        assert.strictEqual(root.nodes[0].type, "regex")
+        const node0 = root.nodes[0] as RegexRuleNode;
         assert.strictEqual(node0.regex.source, "[0-9]")
 
-        assert.strictEqual(root.nodes[1].type, "character")
-        const node1 = root.nodes[1] as CharacterRuleNode;
+        assert.strictEqual(root.nodes[1].type, "regex")
+        const node1 = root.nodes[1] as RegexRuleNode;
         assert.strictEqual(node1.regex.source, "[A-Z]")
     });
 
     it("parse simple alternation", async () => {
         const parser = new RuleParser();
-        let rule = parser.Parse("name ::= \"text1\" | \"text2\" \"text3\"")
+        let rule = parser.Parse("name = \"text1\" | \"text2\" \"text3\"")
 
         assert.strictEqual(rule.length, 1);
         const rule0 = rule[0];
@@ -59,7 +59,7 @@ describe("parseRules", () => {
 
     it("parse comment", async () => {
         const parser = new RuleParser();
-        let rule = parser.Parse("name ::= \"text1\" (* \"some\" \"comment\" * *) \"text3\"")
+        let rule = parser.Parse("name = \"text1\" (* \"some\" \"comment\" * *) \"text3\"")
 
         assert.strictEqual(rule.length, 1);
         const rule0 = rule[0];
@@ -71,7 +71,7 @@ describe("parseRules", () => {
 
     it("parse nested alternation", async () => {
         const parser = new RuleParser();
-        let rule = parser.Parse("name ::= \"1\" ( \"2\" | \"3\" \"4\" ) | \"5\" ")
+        let rule = parser.Parse("name = \"1\" ( \"2\" | \"3\" \"4\" ) | \"5\" ")
 
         assert.strictEqual(rule.length, 1);
         const rule0 = rule[0];
@@ -88,5 +88,41 @@ describe("parseRules", () => {
         assert.strictEqual(node01.nodes.length, 2);
         assert.strictEqual(node01.nodes[0].type, "string");
         assert.strictEqual(node01.nodes[1].type, "group");
+    });
+
+    it("parse option", async () => {
+        const parser = new RuleParser();
+        let rule = parser.Parse("name = [ \"1\" \"2\" ] \"3\" [\"4\"] ")
+
+        assert.strictEqual(rule.length, 1);
+        const rule0 = rule[0];
+        const rootNode = rule0.root as GroupRuleNode;
+
+        assert.strictEqual(rootNode.nodes.length, 3);
+        assert.strictEqual(rootNode.nodes[0].type, "option");
+        const node0 = rootNode.nodes[0] as OptionRuleNode;
+        assert.strictEqual(node0.node.type, "group");
+
+        assert.strictEqual(rootNode.nodes[2].type, "option");
+        const node2 = rootNode.nodes[2] as OptionRuleNode;
+        assert.strictEqual(node2.node.type, "string");
+    });
+
+    it("parse repeat", async () => {
+        const parser = new RuleParser();
+        let rule = parser.Parse("name = { \"1\" \"2\" } \"3\" {\"4\"} ")
+
+        assert.strictEqual(rule.length, 1);
+        const rule0 = rule[0];
+        const rootNode = rule0.root as GroupRuleNode;
+
+        assert.strictEqual(rootNode.nodes.length, 3);
+        assert.strictEqual(rootNode.nodes[0].type, "repeat");
+        const node0 = rootNode.nodes[0] as RepeatRuleNode;
+        assert.strictEqual(node0.node.type, "group");
+
+        assert.strictEqual(rootNode.nodes[2].type, "repeat");
+        const node2 = rootNode.nodes[2] as RepeatRuleNode;
+        assert.strictEqual(node2.node.type, "string");
     });
 });

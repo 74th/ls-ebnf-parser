@@ -5,7 +5,7 @@ export interface Rule {
 
 export type RuleNodeType =
     | "string"
-    | "character"
+    | "regex"
     | "group"
     | "option"
     | "repeat"
@@ -22,8 +22,8 @@ export interface StringRuleNode {
     text: string
 }
 
-export interface CharacterRuleNode {
-    type: "character"
+export interface RegexRuleNode {
+    type: "regex"
     regex: RegExp
 }
 
@@ -34,12 +34,12 @@ export interface AlternationRuleNode {
 
 export interface RepeatRuleNode {
     type: "repeat"
-    nodes: RuleNode[]
+    node: RuleNode
 }
 
 export interface OptionRuleNode {
     type: "option"
-    nodes: RuleNode[]
+    node: RuleNode
 }
 
 export interface ReferenceRuleNode {
@@ -49,7 +49,7 @@ export interface ReferenceRuleNode {
 
 export type RuleNode =
     | StringRuleNode
-    | CharacterRuleNode
+    | RegexRuleNode
     | GroupRuleNode
     | AlternationRuleNode
     | RepeatRuleNode
