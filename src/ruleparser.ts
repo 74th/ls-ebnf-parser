@@ -1,19 +1,36 @@
+import { parse } from "path";
 import { Rule, RuleNode } from "./model/rule"
+
+class parseError extends Error {
+    public fragmentSize: number
+    constructor(message: string, fragmentSize: number) {
+        super(message)
+        this.fragmentSize = fragmentSize;
+    }
+}
 
 export class RuleParser {
 
     public Parse(rulesDoc: string) {
         let fragment = rulesDoc;
         const rules = [] as Rule[];
-        while (true) {
-            const r = this.parseRule(fragment)
-            if (r) {
-                rules.push(r.rule);
-                fragment = r.fragment;
-                continue;
+        try {
+            while (true) {
+                const r = this.parseRule(fragment)
+                if (r) {
+                    rules.push(r.rule);
+                    fragment = r.fragment;
+                    continue;
+                }
+                return rules;
+            };
+        } catch (e) {
+            if (e instanceof parseError) {
+                const lineNumber = rulesDoc.substr(0, rulesDoc.length - e.fragmentSize).split("\n").length
+                throw new Error(`${e.message} lineNumber:${lineNumber}`);
             }
-            return rules;
-        };
+            throw e;
+        }
     }
 
 
@@ -36,21 +53,17 @@ export class RuleParser {
 
         const match = fragment.match(/^([\w]+)\s*=/)
         if (!match) {
-            throw new Error("can not parse document");
+            throw new parseError("can not parse document", fragment.length);
         }
         const name = match[1].trimStart();
         fragment = fragment.substr(match[0].length);
-        try {
-            const r = this.parseAlternationNode(fragment, ";");
-            return {
-                rule: {
-                    name: name,
-                    root: r.node,
-                },
-                fragment: r.fragment,
-            }
-        } catch (e) {
-            throw new Error("can not parse document");
+        const r = this.parseAlternationNode(fragment, ";");
+        return {
+            rule: {
+                name: name,
+                root: r.node,
+            },
+            fragment: r.fragment,
         }
     }
 
@@ -59,7 +72,7 @@ export class RuleParser {
         let nodes = alternations[0] as RuleNode[];
         let fragment = inputFragment;
         while (true) {
-            fragment = fragment.trimStartStart();
+            fragment = fragment.trimStart();
             if (!fragment) {
                 break;
             }
@@ -133,10 +146,10 @@ export class RuleParser {
             if (fragment.match(/^[)\]};]/)) {
                 // close group Node
                 if (!closeBracket) {
-                    throw new Error("cannot parse");
+                    throw new parseError("cannot parse", fragment.length);
                 }
                 if (fragment[0] != closeBracket) {
-                    throw new Error("cannot parse");
+                    throw new parseError("cannot parse", fragment.length);
                 }
                 fragment = fragment.substr(1);
                 break;
@@ -145,6 +158,9 @@ export class RuleParser {
         }
 
         if (alternations.length == 1) {
+            if (nodes.length == 0) {
+                throw new parseError("cannot parse", fragment.length)
+            }
             if (nodes.length == 1) {
                 return {
                     node: nodes[0], fragment
@@ -157,6 +173,9 @@ export class RuleParser {
             }
         } else {
             const alternationNodes = alternations.map((nodes): RuleNode => {
+                if (nodes.length == 0) {
+                    throw new parseError("cannot parse", fragment.length)
+                }
                 if (nodes.length == 1) {
                     return nodes[0];
                 }
@@ -208,7 +227,7 @@ export class RuleParser {
                 }
             }
         }
-        throw new Error("parse error");
+        throw new parseError("parse error", fragment.length);
     }
 
     private parseCharacterNode(fragment: string): { node: RuleNode, fragment: string } {
@@ -237,6 +256,6 @@ export class RuleParser {
                 }
             }
         }
-        throw new Error("parse error");
+        throw new parseError("parse error", fragment.length);
     }
 }

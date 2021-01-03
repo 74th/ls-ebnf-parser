@@ -140,4 +140,15 @@ describe("parseRules", () => {
         const node2 = rootNode.nodes[2] as RepeatRuleNode;
         assert.strictEqual(node2.node.type, "string");
     });
+
+    it("parse error", async () => {
+        const parser = new RuleParser();
+        try {
+            parser.Parse("name \n = \n ; \n \"1\" \n")
+            assert.fail();
+        }
+        catch (e) {
+            assert.strictEqual(e.message, "cannot parse lineNumber:3")
+        }
+    });
 });
