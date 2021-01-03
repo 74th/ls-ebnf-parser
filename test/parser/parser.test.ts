@@ -8,7 +8,7 @@ import { AlternationRuleNode, RegexRuleNode, GroupRuleNode, StringRuleNode, Opti
 describe("parseRules", () => {
     it("parse simple string", async () => {
         const parser = new RuleParser();
-        const rule = parser.Parse("name = \"text1\" \"text2\"")
+        const rule = parser.Parse("name = \"text1\" \"text2\";")
 
         assert.strictEqual(rule.length, 1);
         const rule0 = rule[0];
@@ -25,9 +25,24 @@ describe("parseRules", () => {
         assert.strictEqual(node1.text, "text2")
     });
 
+    it("parse multiple rules ", async () => {
+        const parser = new RuleParser();
+        const rule = parser.Parse("name1 = \"text1\"; name2 = \"text2\";")
+
+        assert.strictEqual(rule.length, 2);
+        assert.strictEqual(rule[0].name, "name1");
+        assert.strictEqual(rule[0].root.type, "string");
+        const node0 = rule[0].root as StringRuleNode;
+        assert.strictEqual(node0.text, "text1");
+        assert.strictEqual(rule[1].name, "name2");
+        assert.strictEqual(rule[1].root.type, "string");
+        const node1 = rule[1].root as StringRuleNode;
+        assert.strictEqual(node1.text, "text2");
+    });
+
     it("parse character node", async () => {
         const parser = new RuleParser();
-        const rule = parser.Parse("name = /[0-9]/ /[A-Z]/")
+        const rule = parser.Parse("name = /[0-9]/ /[A-Z]/;")
 
         assert.strictEqual(rule.length, 1);
         const rule0 = rule[0];
@@ -45,7 +60,7 @@ describe("parseRules", () => {
 
     it("parse simple alternation", async () => {
         const parser = new RuleParser();
-        let rule = parser.Parse("name = \"text1\" | \"text2\" \"text3\"")
+        let rule = parser.Parse("name = \"text1\" | \"text2\" \"text3\";")
 
         assert.strictEqual(rule.length, 1);
         const rule0 = rule[0];
@@ -59,7 +74,7 @@ describe("parseRules", () => {
 
     it("parse comment", async () => {
         const parser = new RuleParser();
-        let rule = parser.Parse("name = \"text1\" (* \"some\" \"comment\" * *) \"text3\"")
+        let rule = parser.Parse("name = \"text1\" (* \"some\" \"comment\" * *) \"text3\"; (* name2 = \"comment\" *)")
 
         assert.strictEqual(rule.length, 1);
         const rule0 = rule[0];
@@ -71,7 +86,7 @@ describe("parseRules", () => {
 
     it("parse nested alternation", async () => {
         const parser = new RuleParser();
-        let rule = parser.Parse("name = \"1\" ( \"2\" | \"3\" \"4\" ) | \"5\" ")
+        let rule = parser.Parse("name = \"1\" ( \"2\" | \"3\" \"4\" ) | \"5\" ;")
 
         assert.strictEqual(rule.length, 1);
         const rule0 = rule[0];
@@ -92,7 +107,7 @@ describe("parseRules", () => {
 
     it("parse option", async () => {
         const parser = new RuleParser();
-        let rule = parser.Parse("name = [ \"1\" \"2\" ] \"3\" [\"4\"] ")
+        let rule = parser.Parse("name = [ \"1\" \"2\" ] \"3\" [\"4\"] ;")
 
         assert.strictEqual(rule.length, 1);
         const rule0 = rule[0];
@@ -110,7 +125,7 @@ describe("parseRules", () => {
 
     it("parse repeat", async () => {
         const parser = new RuleParser();
-        let rule = parser.Parse("name = { \"1\" \"2\" } \"3\" {\"4\"} ")
+        let rule = parser.Parse("name = { \"1\" \"2\" } \"3\" {\"4\"} ;")
 
         assert.strictEqual(rule.length, 1);
         const rule0 = rule[0];

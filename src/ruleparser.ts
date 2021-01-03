@@ -3,40 +3,54 @@ import { Rule, RuleNode } from "./model/rule"
 export class RuleParser {
 
     public Parse(rulesDoc: string) {
-        const lines = rulesDoc.split("\n")
+        let fragment = rulesDoc;
         const rules = [] as Rule[];
-        lines.forEach((line, lineNumber) => {
-            const rule = this.parseLine(line, lineNumber + 1);
-            if (rule) {
-                rules.push(rule);
+        while (true) {
+            const r = this.parseRule(fragment)
+            if (r) {
+                rules.push(r.rule);
+                fragment = r.fragment;
+                continue;
             }
-        });
-        return rules;
+            return rules;
+        };
     }
 
 
-    private parseLine(line: string, lineNumber: number): (Rule | null) {
-        const trimmedLine = line.trim();
-        if (trimmedLine.length == 0) {
-            return null;
-        }
-        const match = trimmedLine.match(/^([^<>]+)\s*=\s*(\S.*)$/)
-        if (!match) {
-            throw new Error(`can not parse document line:{$lineNumber}`);
-        }
-        const name = match[1].trim();
-        const fragment = match[2];
-        try {
-            const r = this.parseAlternationNode(fragment, undefined);
-            if (r.fragment.trim()) {
-                throw new Error(`can not parse document line:{$lineNumber}`);
+    private parseRule(inputFragment: string): ({ rule: Rule, fragment: string } | null) {
+        let fragment = inputFragment.trimStart();
+        while (true) {
+
+            if (fragment.length == 0) {
+                return null;
             }
+
+            if (fragment.match(/^[(][*]/)) {
+                // comment
+                const n = fragment.substr(2).search(/[*][)]/)
+                fragment = fragment.substr(2 + n + 2);
+                continue;
+            }
+            break;
+        }
+
+        const match = fragment.match(/^([\w]+)\s*=/)
+        if (!match) {
+            throw new Error("can not parse document");
+        }
+        const name = match[1].trimStart();
+        fragment = fragment.substr(match[0].length);
+        try {
+            const r = this.parseAlternationNode(fragment, ";");
             return {
-                name: name,
-                root: r.node,
+                rule: {
+                    name: name,
+                    root: r.node,
+                },
+                fragment: r.fragment,
             }
         } catch (e) {
-            throw new Error(`can not parse document line:{$lineNumber}`);
+            throw new Error("can not parse document");
         }
     }
 
@@ -45,7 +59,7 @@ export class RuleParser {
         let nodes = alternations[0] as RuleNode[];
         let fragment = inputFragment;
         while (true) {
-            fragment = fragment.trim();
+            fragment = fragment.trimStartStart();
             if (!fragment) {
                 break;
             }
@@ -116,7 +130,7 @@ export class RuleParser {
                 continue;
             }
 
-            if (fragment.match(/^[)\]}]/)) {
+            if (fragment.match(/^[)\]};]/)) {
                 // close group Node
                 if (!closeBracket) {
                     throw new Error("cannot parse");
