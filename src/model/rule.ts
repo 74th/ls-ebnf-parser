@@ -5,14 +5,15 @@ export interface Rule {
 
 export type RuleNodeType =
     | "string"
-    | "list"
-    | "or"
-    | "plus"
-    | "question"
+    | "character"
+    | "group"
+    | "option"
+    | "repeat"
+    | "option"
 
 
-export interface ListRuleNode {
-    type: "list"
+export interface GroupRuleNode {
+    type: "group"
     nodes: RuleNode[]
 }
 
@@ -21,18 +22,23 @@ export interface StringRuleNode {
     text: string
 }
 
-export interface OrRuleNode {
-    type: "or"
+export interface CharacterRuleNode {
+    type: "character"
+    regex: RegExp
+}
+
+export interface AlternationRuleNode {
+    type: "alternation"
     nodes: RuleNode[]
 }
 
-export interface PlusRuleNode {
-    type: "plus"
+export interface RepeatRuleNode {
+    type: "repeat"
     nodes: RuleNode[]
 }
 
-export interface QuestionRuleNode {
-    type: "question"
+export interface OptionRuleNode {
+    type: "option"
     nodes: RuleNode[]
 }
 
@@ -43,10 +49,11 @@ export interface ReferenceRuleNode {
 
 export type RuleNode =
     | StringRuleNode
-    | ListRuleNode
-    | OrRuleNode
-    | PlusRuleNode
-    | QuestionRuleNode
+    | CharacterRuleNode
+    | GroupRuleNode
+    | AlternationRuleNode
+    | RepeatRuleNode
+    | OptionRuleNode
     | ReferenceRuleNode
 
 export interface Rules {
