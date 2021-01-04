@@ -10,7 +10,7 @@ class parseError extends Error {
 
 export class RuleParser {
 
-    public Parse(rulesDoc: string, reservedWords: string[]): Rules {
+    public Parse(rulesDoc: string): Rules {
         const referencedNames = [] as string[];
         let fragment = rulesDoc;
         const rules = [] as Rule[];
@@ -37,7 +37,8 @@ export class RuleParser {
         return {
             rules: rules,
             rootRule: rules[0].name,
-            reservedWords: reservedWords
+            reservedWords: [],
+            tokenExcludeRules: [],
         };
     }
 

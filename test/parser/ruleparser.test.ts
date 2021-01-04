@@ -6,7 +6,7 @@ import { AlternationRuleNode, RegexRuleNode, GroupRuleNode, StringRuleNode, Opti
 describe("parseRules", () => {
     it("parse simple string", async () => {
         const parser = new RuleParser();
-        const rule = parser.Parse("name = \"text1\" \"text2\";", []).rules
+        const rule = parser.Parse("name = \"text1\" \"text2\";").rules
 
         assert.strictEqual(rule.length, 1);
         const rule0 = rule[0];
@@ -25,7 +25,7 @@ describe("parseRules", () => {
 
     it("parse multiple rules ", async () => {
         const parser = new RuleParser();
-        const rule = parser.Parse("name1 = \"text1\"; name2 = \"text2\";", []).rules
+        const rule = parser.Parse("name1 = \"text1\"; name2 = \"text2\";").rules
 
         assert.strictEqual(rule.length, 2);
         assert.strictEqual(rule[0].name, "name1");
@@ -40,7 +40,7 @@ describe("parseRules", () => {
 
     it("parse character node", async () => {
         const parser = new RuleParser();
-        const rule = parser.Parse("name = /[0-9]/ /[A-Z]/;", []).rules
+        const rule = parser.Parse("name = /[0-9]/ /[A-Z]/;").rules
 
         assert.strictEqual(rule.length, 1);
         const rule0 = rule[0];
@@ -58,7 +58,7 @@ describe("parseRules", () => {
 
     it("parse simple alternation", async () => {
         const parser = new RuleParser();
-        const rule = parser.Parse("name = \"text1\" | \"text2\" \"text3\";", []).rules
+        const rule = parser.Parse("name = \"text1\" | \"text2\" \"text3\";").rules
 
         assert.strictEqual(rule.length, 1);
         const rule0 = rule[0];
@@ -72,7 +72,7 @@ describe("parseRules", () => {
 
     it("parse comment", async () => {
         const parser = new RuleParser();
-        const rule = parser.Parse("name = \"text1\" (* \"some\" \"comment\" * *) \"text3\"; (* name2 = \"comment\" *)", []).rules
+        const rule = parser.Parse("name = \"text1\" (* \"some\" \"comment\" * *) \"text3\"; (* name2 = \"comment\" *)").rules
 
         assert.strictEqual(rule.length, 1);
         const rule0 = rule[0];
@@ -84,7 +84,7 @@ describe("parseRules", () => {
 
     it("parse nested alternation", async () => {
         const parser = new RuleParser();
-        const rule = parser.Parse("name = \"1\" ( \"2\" | \"3\" \"4\" ) | \"5\" ;", []).rules
+        const rule = parser.Parse("name = \"1\" ( \"2\" | \"3\" \"4\" ) | \"5\" ;").rules
 
         assert.strictEqual(rule.length, 1);
         const rule0 = rule[0];
@@ -105,7 +105,7 @@ describe("parseRules", () => {
 
     it("parse option", async () => {
         const parser = new RuleParser();
-        const rule = parser.Parse("name = [ \"1\" \"2\" ] \"3\" [\"4\"] ;", []).rules
+        const rule = parser.Parse("name = [ \"1\" \"2\" ] \"3\" [\"4\"] ;").rules
 
         assert.strictEqual(rule.length, 1);
         const rule0 = rule[0];
@@ -123,7 +123,7 @@ describe("parseRules", () => {
 
     it("parse repeat", async () => {
         const parser = new RuleParser();
-        const rule = parser.Parse("name = { \"1\" \"2\" } \"3\" {\"4\"} ;", []).rules
+        const rule = parser.Parse("name = { \"1\" \"2\" } \"3\" {\"4\"} ;").rules
 
         assert.strictEqual(rule.length, 1);
         const rule0 = rule[0];
@@ -142,7 +142,7 @@ describe("parseRules", () => {
     it("parse error", async () => {
         const parser = new RuleParser();
         try {
-            parser.Parse("name \n = \n ; \n \"1\" \n", [])
+            parser.Parse("name \n = \n ; \n \"1\" \n")
             assert.fail();
         }
         catch (e) {
@@ -152,7 +152,7 @@ describe("parseRules", () => {
 
     it("parse reference", async () => {
         const parser = new RuleParser();
-        const rule = parser.Parse("name = \"t1\" name1 | \"t2\"; name1 = \"t3\" ", []).rules;
+        const rule = parser.Parse("name = \"t1\" name1 | \"t2\"; name1 = \"t3\" ").rules;
         assert.strictEqual(rule.length, 2);
         const rule0 = rule[0];
         const rootNode = rule0.root as AlternationRuleNode;
@@ -162,7 +162,7 @@ describe("parseRules", () => {
         assert.strictEqual(node01.name, "name1");
 
         try {
-            parser.Parse("name = \"t1\" name1 | \"t2\"; name2 = \"t3\" ", []).rules;
+            parser.Parse("name = \"t1\" name1 | \"t2\"; name2 = \"t3\" ").rules;
             assert.fail();
         } catch (e) {
             assert.strictEqual(e.message, "found undefined reference name1");

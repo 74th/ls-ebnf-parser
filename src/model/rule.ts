@@ -60,4 +60,5 @@ export interface Rules {
     rules: Rule[]
     rootRule: string
     reservedWords: string[]
+    tokenExcludeRules: string[]
 }
