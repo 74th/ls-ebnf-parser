@@ -1,57 +1,61 @@
-import { parse } from "path";
-import { Rule, RuleNode } from "./model/rule"
+import { Rule, RuleNode, Rules } from "./model/rule";
 
 class parseError extends Error {
-    public fragmentSize: number
+    public fragmentSize: number;
     constructor(message: string, fragmentSize: number) {
-        super(message)
+        super(message);
         this.fragmentSize = fragmentSize;
     }
 }
 
 export class RuleParser {
-
-    public Parse(rulesDoc: string) {
+    public Parse(rulesDoc: string, reservedWords: string[]): Rules {
         let fragment = rulesDoc;
         const rules = [] as Rule[];
         try {
-            while (true) {
-                const r = this.parseRule(fragment)
+            for (; ;) {
+                const r = this.parseRule(fragment);
                 if (r) {
                     rules.push(r.rule);
                     fragment = r.fragment;
                     continue;
                 }
-                return rules;
-            };
+                return {
+                    rules: rules,
+                    rootRule: rules[0].name,
+                    reservedWords: reservedWords
+                };
+            }
         } catch (e) {
             if (e instanceof parseError) {
-                const lineNumber = rulesDoc.substr(0, rulesDoc.length - e.fragmentSize).split("\n").length
+                const lineNumber = rulesDoc
+                    .substr(0, rulesDoc.length - e.fragmentSize)
+                    .split("\n").length;
                 throw new Error(`${e.message} lineNumber:${lineNumber}`);
             }
             throw e;
         }
     }
 
-
-    private parseRule(inputFragment: string): ({ rule: Rule, fragment: string } | null) {
+    private parseRule(
+        inputFragment: string
+    ): { rule: Rule; fragment: string } | null {
         let fragment = inputFragment.trimStart();
-        while (true) {
-
+        for (; ;) {
             if (fragment.length == 0) {
                 return null;
             }
 
             if (fragment.match(/^[(][*]/)) {
                 // comment
-                const n = fragment.substr(2).search(/[*][)]/)
+                const n = fragment.substr(2).search(/[*][)]/);
                 fragment = fragment.substr(2 + n + 2);
                 continue;
             }
             break;
         }
 
-        const match = fragment.match(/^([\w]+)\s*=/)
+        const match = fragment.match(/^([\w]+)\s*=/);
         if (!match) {
             throw new parseError("can not parse document", fragment.length);
         }
@@ -64,14 +68,17 @@ export class RuleParser {
                 root: r.node,
             },
             fragment: r.fragment,
-        }
+        };
     }
 
-    private parseAlternationNode(inputFragment: string, closeBracket?: string): { node: RuleNode, fragment: string } {
+    private parseAlternationNode(
+        inputFragment: string,
+        closeBracket?: string
+    ): { node: RuleNode; fragment: string } {
         const alternations = [[]] as RuleNode[][];
         let nodes = alternations[0] as RuleNode[];
         let fragment = inputFragment;
-        while (true) {
+        for (; ;) {
             fragment = fragment.trimStart();
             if (!fragment) {
                 break;
@@ -80,7 +87,7 @@ export class RuleParser {
                 // string
                 const r = this.parseStringNode(fragment);
                 fragment = r.fragment;
-                nodes.push(r.node)
+                nodes.push(r.node);
                 continue;
             }
 
@@ -88,7 +95,7 @@ export class RuleParser {
                 // character
                 const r = this.parseCharacterNode(fragment);
                 fragment = r.fragment;
-                nodes.push(r.node)
+                nodes.push(r.node);
                 continue;
             }
 
@@ -108,7 +115,7 @@ export class RuleParser {
 
             if (fragment.match(/^[(][*]/)) {
                 // comment
-                const n = fragment.substr(2).search(/[*][)]/)
+                const n = fragment.substr(2).search(/[*][)]/);
                 fragment = fragment.substr(2 + n + 2);
                 continue;
             }
@@ -154,59 +161,66 @@ export class RuleParser {
                 fragment = fragment.substr(1);
                 break;
             }
-
         }
 
         if (alternations.length == 1) {
             if (nodes.length == 0) {
-                throw new parseError("cannot parse", fragment.length)
+                throw new parseError("cannot parse", fragment.length);
             }
             if (nodes.length == 1) {
                 return {
-                    node: nodes[0], fragment
-                }
+                    node: nodes[0],
+                    fragment,
+                };
             }
             return {
                 node: {
-                    type: "group", nodes
-                }, fragment
-            }
+                    type: "group",
+                    nodes,
+                },
+                fragment,
+            };
         } else {
-            const alternationNodes = alternations.map((nodes): RuleNode => {
-                if (nodes.length == 0) {
-                    throw new parseError("cannot parse", fragment.length)
+            const alternationNodes = alternations.map(
+                (nodes): RuleNode => {
+                    if (nodes.length == 0) {
+                        throw new parseError("cannot parse", fragment.length);
+                    }
+                    if (nodes.length == 1) {
+                        return nodes[0];
+                    }
+                    return {
+                        type: "group",
+                        nodes,
+                    };
                 }
-                if (nodes.length == 1) {
-                    return nodes[0];
-                }
-                return {
-                    type: "group", nodes
-                }
-            })
+            );
             return {
                 node: {
                     type: "alternation",
                     nodes: alternationNodes,
                 },
                 fragment,
-            }
+            };
         }
     }
 
-    private parseStringNode(fragment: string): { node: RuleNode, fragment: string } {
+    private parseStringNode(
+        fragment: string
+    ): { node: RuleNode; fragment: string } {
         let escaped = false;
         let text = "";
-        let quote = fragment[0];
+        const quote = fragment[0];
         for (let i = 1; i < fragment.length; i++) {
             if (escaped) {
-                escaped = false
+                escaped = false;
                 switch (fragment[i]) {
                     case "n":
                     case "r":
-                        text += "\n"
+                        text += "\n";
                         break;
                     default:
-                        text += fragment[i]
+                        text += fragment[i];
                 }
             } else {
                 switch (fragment[i]) {
@@ -214,10 +228,10 @@ export class RuleParser {
                         return {
                             node: {
                                 type: "string",
-                                text
+                                text,
                             },
                             fragment: fragment.substr(i + 1),
-                        }
+                        };
                         break;
                     case "\\":
                         escaped = true;
@@ -230,23 +244,25 @@ export class RuleParser {
         throw new parseError("parse error", fragment.length);
     }
 
-    private parseCharacterNode(fragment: string): { node: RuleNode, fragment: string } {
+    private parseCharacterNode(
+        fragment: string
+    ): { node: RuleNode; fragment: string } {
         let escaped = false;
         let text = "";
         for (let i = 1; i < fragment.length; i++) {
             if (escaped) {
-                escaped = false
-                text += fragment[i]
+                escaped = false;
+                text += fragment[i];
             } else {
                 switch (fragment[i]) {
                     case "/":
                         return {
                             node: {
                                 type: "regex",
-                                regex: new RegExp(text),
+                                regex: text,
                             },
                             fragment: fragment.substr(i + 1),
-                        }
+                        };
                         break;
                     case "\\":
                         escaped = true;
