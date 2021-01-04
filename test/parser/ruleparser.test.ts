@@ -1,7 +1,7 @@
 import { describe, it } from "mocha";
 import { RuleParser } from "../../src/ruleparser";
 import * as assert from "assert"
-import { AlternationRuleNode, RegexRuleNode, GroupRuleNode, StringRuleNode, OptionRuleNode, RepeatRuleNode } from "../../src/model/rule";
+import { AlternationRuleNode, RegexRuleNode, GroupRuleNode, StringRuleNode, OptionRuleNode, RepeatRuleNode, ReferenceRuleNode } from "../../src/model/rule";
 
 describe("parseRules", () => {
     it("parse simple string", async () => {
@@ -147,6 +147,25 @@ describe("parseRules", () => {
         }
         catch (e) {
             assert.strictEqual(e.message, "cannot parse lineNumber:3")
+        }
+    });
+
+    it("parse reference", async () => {
+        const parser = new RuleParser();
+        const rule = parser.Parse("name = \"t1\" name1 | \"t2\"; name1 = \"t3\" ", []).rules;
+        assert.strictEqual(rule.length, 2);
+        const rule0 = rule[0];
+        const rootNode = rule0.root as AlternationRuleNode;
+        const node0 = rootNode.nodes[0] as GroupRuleNode;
+        assert.strictEqual(node0.nodes[1].type, "reference");
+        const node01 = node0.nodes[1] as ReferenceRuleNode;
+        assert.strictEqual(node01.name, "name1");
+
+        try {
+            parser.Parse("name = \"t1\" name1 | \"t2\"; name2 = \"t3\" ", []).rules;
+            assert.fail();
+        } catch (e) {
+            assert.strictEqual(e.message, "found undefined reference name1");
         }
     });
 });

@@ -9,22 +9,20 @@ class parseError extends Error {
 }
 
 export class RuleParser {
+
     public Parse(rulesDoc: string, reservedWords: string[]): Rules {
+        const referencedNames = [] as string[];
         let fragment = rulesDoc;
         const rules = [] as Rule[];
         try {
             for (; ;) {
-                const r = this.parseRule(fragment);
+                const r = this.parseRule(fragment, referencedNames);
                 if (r) {
                     rules.push(r.rule);
                     fragment = r.fragment;
                     continue;
                 }
-                return {
-                    rules: rules,
-                    rootRule: rules[0].name,
-                    reservedWords: reservedWords
-                };
+                break;
             }
         } catch (e) {
             if (e instanceof parseError) {
@@ -35,10 +33,17 @@ export class RuleParser {
             }
             throw e;
         }
+        this.checkReferences(rules, referencedNames);
+        return {
+            rules: rules,
+            rootRule: rules[0].name,
+            reservedWords: reservedWords
+        };
     }
 
     private parseRule(
-        inputFragment: string
+        inputFragment: string,
+        referenceNames: string[],
     ): { rule: Rule; fragment: string } | null {
         let fragment = inputFragment.trimStart();
         for (; ;) {
@@ -61,7 +66,7 @@ export class RuleParser {
         }
         const name = match[1].trimStart();
         fragment = fragment.substr(match[0].length);
-        const r = this.parseAlternationNode(fragment, ";");
+        const r = this.parseAlternationNode(fragment, ";", referenceNames);
         return {
             rule: {
                 name: name,
@@ -73,7 +78,8 @@ export class RuleParser {
 
     private parseAlternationNode(
         inputFragment: string,
-        closeBracket?: string
+        closeBracket: string,
+        referenceNames: string[],
     ): { node: RuleNode; fragment: string } {
         const alternations = [[]] as RuleNode[][];
         let nodes = alternations[0] as RuleNode[];
@@ -92,8 +98,16 @@ export class RuleParser {
             }
 
             if (fragment.match(/^\/.*\//)) {
-                // character
+                // regex
                 const r = this.parseCharacterNode(fragment);
+                fragment = r.fragment;
+                nodes.push(r.node);
+                continue;
+            }
+
+            if (fragment.match(/^\w/)) {
+                // reference
+                const r = this.parseReferenceNode(fragment, referenceNames);
                 fragment = r.fragment;
                 nodes.push(r.node);
                 continue;
@@ -122,7 +136,7 @@ export class RuleParser {
 
             if (fragment.match(/^[(]/)) {
                 // alternation or group
-                const r = this.parseAlternationNode(fragment.substr(1), ")");
+                const r = this.parseAlternationNode(fragment.substr(1), ")", []);
                 nodes.push(r.node);
                 fragment = r.fragment;
                 continue;
@@ -130,7 +144,7 @@ export class RuleParser {
 
             if (fragment.match(/^[/[]/)) {
                 // option
-                const r = this.parseAlternationNode(fragment.substr(1), "]");
+                const r = this.parseAlternationNode(fragment.substr(1), "]", []);
                 nodes.push({
                     type: "option",
                     node: r.node,
@@ -141,7 +155,7 @@ export class RuleParser {
 
             if (fragment.match(/^[{]/)) {
                 // repeat
-                const r = this.parseAlternationNode(fragment.substr(1), "}");
+                const r = this.parseAlternationNode(fragment.substr(1), "}", []);
                 nodes.push({
                     type: "repeat",
                     node: r.node,
@@ -161,6 +175,7 @@ export class RuleParser {
                 fragment = fragment.substr(1);
                 break;
             }
+
         }
 
         if (alternations.length == 1) {
@@ -273,5 +288,38 @@ export class RuleParser {
             }
         }
         throw new parseError("parse error", fragment.length);
+    }
+
+    private parseReferenceNode(
+        fragment: string,
+        referencedNames: string[],
+    ): { node: RuleNode; fragment: string } {
+        const name = fragment.match(/^\w+/);
+        if (!name) {
+            throw new Error("implemented error");
+        }
+        referencedNames.push(name[0]);
+        return {
+            node: {
+                type: "reference",
+                name: name[0],
+            },
+            fragment: fragment.substr(name[0].length),
+        }
+    }
+
+    private checkReferences(
+        rules: Rule[],
+        referencedNames: string[],
+    ) {
+        const ruleNames = {} as { [index: string]: boolean; };
+        rules.forEach((rule) => {
+            ruleNames[rule.name] = true;
+        });
+        referencedNames.forEach((name) => {
+            if (!ruleNames[name]) {
+                throw new Error(`found undefined reference ${name}`);
+            }
+        });
     }
 }
