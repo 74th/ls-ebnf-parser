@@ -82,4 +82,18 @@ describe("ParserFullDocument", () => {
         assert.strictEqual(result2.children[0].rule, "item3");
         assert.strictEqual(result2.children[0].text, "TEXT");
     });
+
+    it("parse repeat node", async () => {
+        const ruleDoc = `p = { a | b } c ; a = "a"; b = "b"; c = "c"; `;
+        const rules = new RuleParser().Parse(ruleDoc);
+        const result1 = new Parser(rules).ParseFullDocument(`aaac`);
+        assert.strictEqual(result1.text, "aaac");
+        assert.strictEqual(result1.rule, "p");
+        assert.strictEqual(result1.children.length, 4);
+
+        const result2 = new Parser(rules).ParseFullDocument(`bbbc`);
+        assert.strictEqual(result2.text, "bbbc");
+        assert.strictEqual(result2.rule, "p");
+        assert.strictEqual(result2.children.length, 4);
+    });
 });
