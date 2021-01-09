@@ -1,6 +1,7 @@
 import { Token } from "./model/ast";
-import { Rules, RuleNode, Rule, StringRuleNode, GroupRuleNode, ReferenceRuleNode, AlternationRuleNode } from "./model/rule";
+import { Rules, RuleNode, Rule, StringRuleNode, GroupRuleNode, ReferenceRuleNode, AlternationRuleNode, OptionRuleNode } from "./model/rule";
 import { Range, Position } from "./model/document";
+import { start } from "repl";
 
 class TextDocument {
     private lines: string[];
@@ -180,20 +181,26 @@ export class Parser {
 
     private *digNode(node: RuleNode, doc: TextDocument, startPos: Position): Generator<{ end: Position, token: Token }> {
         let iter: Generator<{ end: Position, token: Token }> | null = null;
-        if (node.type == "string") {
-            iter = this.digStringNode(node, doc, startPos);
-        }
-        if (node.type == "group") {
-            iter = this.digGroupNode(node, doc, startPos);
-        }
-        if (node.type == "reference") {
-            iter = this.digReferenceNode(node, doc, startPos);
-        }
-        if (node.type == "alternation") {
-            iter = this.digAlternationNode(node, doc, startPos);
-        }
-        if (!iter) {
-            return;
+        switch (node.type) {
+            case "string":
+                iter = this.digStringNode(node, doc, startPos);
+                break;
+            case "group":
+                iter = this.digGroupNode(node, doc, startPos);
+                break;
+            case "reference":
+                iter = this.digReferenceNode(node, doc, startPos);
+                break;
+            case "alternation":
+                iter = this.digAlternationNode(node, doc, startPos);
+                break;
+            case "option":
+                iter = this.digOptionNode(node, doc, startPos);
+                break;
+            case "repeat":
+            case "regex":
+            default:
+                return;
         }
         for (let y = iter.next(); !y.done; y = iter.next()) {
             yield y.value;
@@ -239,46 +246,91 @@ export class Parser {
         const iter = this.digNode(node, doc, startPos);
         for (let y = iter.next(); !y.done; y = iter.next()) {
             const child = y.value;
-            if (next+1 < groupNode.nodes.length) {
+            if (next + 1 < groupNode.nodes.length) {
                 const iter2 = this.digGroupNodeNext(groupNode, next + 1, doc, child.end);
                 for (let y2 = iter2.next(); !y2.done; y2 = iter2.next()) {
                     const nextNode = y2.value;
+                    let children: Token[];
+                    if (child.token.rule) {
+                        children = [child.token, ...nextNode.children]
+                    } else {
+                        children = [...child.token.children, ...nextNode.children];
+                    }
                     yield {
                         end: nextNode.end,
-                        children: [child.token, ...nextNode.children],
+                        children,
                     }
                 }
             } else {
                 // last node in group
                 yield {
                     end: child.end,
-                    children: [child.token],
+                    children: child.token.rule ? [child.token] : child.token.children,
                 }
             }
         }
     }
 
-    private digReferenceNode(node: ReferenceRuleNode, doc: TextDocument, startPos: Position): Generator<{ end: Position, token: Token }>{
+    private digReferenceNode(node: ReferenceRuleNode, doc: TextDocument, startPos: Position): Generator<{ end: Position, token: Token }> {
         const rule = this.rules[node.name];
         return this.digRule(rule, doc, startPos)
     }
 
-    private *digAlternationNode(node: AlternationRuleNode, doc: TextDocument, startPos: Position): Generator<{ end: Position, token: Token } > {
+    private *digAlternationNode(node: AlternationRuleNode, doc: TextDocument, startPos: Position): Generator<{ end: Position, token: Token }> {
         for (let n = 0; n < node.nodes.length; n++) {
             const iter = this.digNode(node.nodes[n], doc, startPos);
             for (let y = iter.next(); !y.done; y = iter.next()) {
                 const child = y.value;
                 const range: Range = { start: startPos, end: child.end };
+                let children: Token[];
+                if (child.token.rule) {
+                    children = [child.token];
+                } else {
+                    children = child.token.children;
+                }
                 yield {
                     end: child.end,
                     token: {
                         range,
                         rule: "",
                         text: doc.getText(range),
-                        children: [child.token],
+                        children,
                     }
                 }
 
+            }
+        }
+    }
+
+    private *digOptionNode(node: OptionRuleNode, doc: TextDocument, startPos: Position): Generator<{ end: Position, token: Token }> {
+        const iter = this.digNode(node.node, doc, startPos);
+
+        for (let y = iter.next(); !y.done; y = iter.next()) {
+            const child = y.value;
+            const range: Range = { start: startPos, end: child.end };
+            let children: Token[];
+            if (child.token.rule) {
+                children = [child.token];
+            } else {
+                children = child.token.children;
+            }
+            yield {
+                end: child.end,
+                token: {
+                    range,
+                    rule: "",
+                    text: doc.getText(range),
+                    children,
+                }
+            }
+        }
+        yield {
+            end: startPos,
+            token: {
+                range: { start: startPos, end: startPos },
+                rule: "",
+                text: "",
+                children: [],
             }
         }
     }
