@@ -229,49 +229,49 @@ export class Parser {
     }
 
     private *digGroupNode(node: GroupRuleNode, doc: TextDocument, startPos: Position): digNodeIter {
-        const iter = this.digGroupNodeNext(node, 0, doc, startPos);
-        for (let y = iter.next(); !y.done; y = iter.next()) {
-            const r = y.value;
-            const range: Range = { start: startPos, end: r.end };
-            yield {
-                end: r.end,
-                token: {
-                    range,
-                    rule: "",
-                    text: doc.getText(range),
-                    children: r.children,
-                }
-            };
-        }
-    }
-
-    private *digGroupNodeNext(groupNode: GroupRuleNode, next: number, doc: TextDocument, startPos: Position): Generator<{ end: Position, children: Token[] }> {
-        const node = groupNode.nodes[next];
-        const iter = this.digNode(node, doc, startPos);
-        for (let y = iter.next(); !y.done; y = iter.next()) {
-            const child = y.value;
-            if (next + 1 < groupNode.nodes.length) {
-                const iter2 = this.digGroupNodeNext(groupNode, next + 1, doc, child.end);
-                for (let y2 = iter2.next(); !y2.done; y2 = iter2.next()) {
-                    const nextNode = y2.value;
-                    let children: Token[];
-                    if (child.token.rule) {
-                        children = [child.token, ...nextNode.children]
+        let children: Token[] = []
+        const iters: { iter: digNodeIter, nPrevChildren: number }[] = []
+        let iter = this.digNode(node.nodes[0], doc, startPos);
+        for (; ;) {
+            const r = iter.next()
+            if (!r.done) {
+                if (iters.length + 1 == node.nodes.length) {
+                    // last node
+                    const range: Range = { start: startPos, end: r.value.end };
+                    let c: Token[];
+                    if (r.value.token.rule) {
+                        c = [...children, r.value.token]
                     } else {
-                        children = [...child.token.children, ...nextNode.children];
+                        c = [...children, ...r.value.token.children]
                     }
                     yield {
-                        end: nextNode.end,
-                        children,
+                        end: r.value.end,
+                        token: {
+                            range,
+                            rule: "",
+                            text: doc.getText(range),
+                            children: c,
+                        }
                     }
+                    continue;
                 }
-            } else {
-                // last node in group
-                yield {
-                    end: child.end,
-                    children: child.token.rule ? [child.token] : child.token.children,
+
+                iters.push({ iter, nPrevChildren: children.length })
+                if (r.value.token.rule) {
+                    children.push(r.value.token);
+                } else {
+                    children.push(...r.value.token.children)
                 }
+                iter = this.digNode(node.nodes[iters.length], doc, r.value.end);
+                continue;
             }
+
+            const p = iters.pop();
+            if (!p) {
+                return
+            }
+            iter = p.iter;
+            children = children.slice(0, p.nPrevChildren);
         }
     }
 
@@ -369,7 +369,7 @@ export class Parser {
                     range,
                     rule: "",
                     text: doc.getText(range),
-                    children,
+                    children: [...children],
                 }
             }
 

@@ -86,14 +86,27 @@ describe("ParserFullDocument", () => {
     it("parse repeat node", async () => {
         const ruleDoc = `p = { a | b } c ; a = "a"; b = "b"; c = "c"; `;
         const rules = new RuleParser().Parse(ruleDoc);
-        const result1 = new Parser(rules).ParseFullDocument(`aaac`);
+        const parser = new Parser(rules);
+        const result1 = parser.ParseFullDocument(`aaac`);
         assert.strictEqual(result1.text, "aaac");
         assert.strictEqual(result1.rule, "p");
         assert.strictEqual(result1.children.length, 4);
 
-        const result2 = new Parser(rules).ParseFullDocument(`bbbc`);
+        const result2 = parser.ParseFullDocument(`bbbc`);
         assert.strictEqual(result2.text, "bbbc");
         assert.strictEqual(result2.rule, "p");
         assert.strictEqual(result2.children.length, 4);
+
+        const result3 = parser.ParseFullDocument(`bc`);
+        assert.strictEqual(result3.text, "bc");
+        assert.strictEqual(result3.rule, "p");
+        assert.strictEqual(result3.children.length, 2);
+
+        try {
+            parser.ParseFullDocument(`c`);
+            assert.fail();
+        } catch (e) {
+            // ok
+        }
     });
 });
