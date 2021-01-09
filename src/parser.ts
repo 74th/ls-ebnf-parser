@@ -1,7 +1,6 @@
 import { Token } from "./model/ast";
 import { Rules, RuleNode, Rule, StringRuleNode, GroupRuleNode, ReferenceRuleNode, AlternationRuleNode } from "./model/rule";
 import { Range, Position } from "./model/document";
-import { isConstructorDeclaration } from "typescript";
 
 class TextDocument {
     private lines: string[];
@@ -143,62 +142,70 @@ export class Parser {
     public ParseFullDocument(text: string): Token {
         const doc = new TextDocument();
         doc.updateFullDocument(text);
-        const result = this.digRule(this.rootRule, doc, { line: 0, character: 0 });
-        if (result) {
-            return result.token;
+        const rule = this.digRule(this.rootRule, doc, { line: 0, character: 0 });
+        const result = rule.next();
+        if (!result.done) {
+            return result.value.token;
         }
         throw new Error("cannot parse document");
     }
 
-    private digRule(rule: Rule, doc: TextDocument, startPos: Position): ({ end: Position, token: Token } | null) {
-        const r = this.digNode(rule.root, doc, startPos)
-        if (!r) {
-            return null;
-        }
-        const token: Token = {
-            range: {
-                start: startPos,
+    private *digRule(rule: Rule, doc: TextDocument, startPos: Position): Generator<{ end: Position, token: Token }> {
+        const node = this.digNode(rule.root, doc, startPos)
+        for (let y = node.next(); !y.done; y = node.next()) {
+            const r = y.value;
+            const token: Token = {
+                range: {
+                    start: startPos,
+                    end: r.end,
+                },
+                children: r.token.children,
+                text: "",
+                rule: rule.name,
+            };
+            token.text = doc.getText(token.range);
+            if (r.token.rule) {
+                // Reference Node
+                token.children = [r.token]
+            }
+            if (this.tokenExcludeRules[rule.name]) {
+                token.rule = "";
+            }
+            yield {
                 end: r.end,
-            },
-            children: r.token.children,
-            text: "",
-            rule: rule.name,
-        };
-        token.text = doc.getText(token.range);
-        if (r.token.rule) {
-            // Reference Node
-            token.children = [r.token]
-        }
-        if (this.tokenExcludeRules[rule.name]) {
-            token.rule = "";
-        }
-        return {
-            end: r.end,
-            token: token,
+                token: token,
+            }
         }
     }
 
-    private digNode(node: RuleNode, doc: TextDocument, startPos: Position): ({ end: Position, token: Token } | null) {
+    private *digNode(node: RuleNode, doc: TextDocument, startPos: Position): Generator<{ end: Position, token: Token }> {
+        let iter: Generator<{ end: Position, token: Token }> | null = null;
         if (node.type == "string") {
-            return this.digStringNode(node, doc, startPos);
+            iter = this.digStringNode(node, doc, startPos);
         }
         if (node.type == "group") {
-            return this.digGroupNode(node, doc, startPos);
+            iter = this.digGroupNode(node, doc, startPos);
         }
         if (node.type == "reference") {
-            return this.digReferenceNode(node, doc, startPos);
+            iter = this.digReferenceNode(node, doc, startPos);
         }
         if (node.type == "alternation") {
-            return this.digReferenceNode(node, doc, startPos);
+            iter = this.digAlternationNode(node, doc, startPos);
         }
-        return null;
+        if (!iter) {
+            return;
+        }
+        for (let y = iter.next(); !y.done; y = iter.next()) {
+            yield y.value;
+        }
+        return;
     }
 
-    private digStringNode(node: StringRuleNode, doc: TextDocument, startPos: Position): ({ end: Position, token: Token } | null) {
+    private *digStringNode(node: StringRuleNode, doc: TextDocument, startPos: Position): Generator<{ end: Position, token: Token }> {
         const text = doc.getTextFromPosition(startPos, ReadCharacterLength)
         if (text.startsWith(node.text)) {
             const range = doc.getRangeFromPosition(startPos, node.text.length)
-            return {
+            yield {
                 end: range.end,
                 token: {
                     range,
@@ -208,72 +215,72 @@ export class Parser {
                 }
             }
         }
-        return null;
     }
 
-    private digGroupNode(node: GroupRuleNode, doc: TextDocument, startPos: Position): ({ end: Position, token: Token } | null) {
-        let pos = startPos;
-        const children = [] as Token[];
-        for (let n = 0; n < node.nodes.length; n++) {
-            const r = this.digNode(node.nodes[n], doc, pos);
-            if (!r) {
-                return null;
-            }
-            if (r.token.rule) {
-                children.push(r.token);
-            } else {
-                children.push(...r.token.children)
-            }
-            pos = r.end;
+    private *digGroupNode(node: GroupRuleNode, doc: TextDocument, startPos: Position): Generator<{ end: Position, token: Token }> {
+        const iter = this.digGroupNodeNext(node, 0, doc, startPos);
+        for (let y = iter.next(); !y.done; y = iter.next()) {
+            const r = y.value;
+            const range: Range = { start: startPos, end: r.end };
+            yield {
+                end: r.end,
+                token: {
+                    range,
+                    rule: "",
+                    text: doc.getText(range),
+                    children: r.children,
+                }
+            };
         }
-        const range: Range = { start: startPos, end: pos };
-
-        return {
-            end: pos,
-            token: {
-                range,
-                rule: "",
-                text: doc.getText(range),
-                children: children,
-            }
-        };
     }
 
-    private digReferenceNode(node: ReferenceRuleNode, doc: TextDocument, startPos: Position): ({ end: Position, token: Token } | null) {
+    private *digGroupNodeNext(groupNode: GroupRuleNode, next: number, doc: TextDocument, startPos: Position): Generator<{ end: Position, children: Token[] }> {
+        const node = groupNode.nodes[next];
+        const iter = this.digNode(node, doc, startPos);
+        for (let y = iter.next(); !y.done; y = iter.next()) {
+            const child = y.value;
+            if (next+1 < groupNode.nodes.length) {
+                const iter2 = this.digGroupNodeNext(groupNode, next + 1, doc, child.end);
+                for (let y2 = iter2.next(); !y2.done; y2 = iter2.next()) {
+                    const nextNode = y2.value;
+                    yield {
+                        end: nextNode.end,
+                        children: [child.token, ...nextNode.children],
+                    }
+                }
+            } else {
+                // last node in group
+                yield {
+                    end: child.end,
+                    children: [child.token],
+                }
+            }
+        }
+    }
+
+    private digReferenceNode(node: ReferenceRuleNode, doc: TextDocument, startPos: Position): Generator<{ end: Position, token: Token }>{
         const rule = this.rules[node.name];
         return this.digRule(rule, doc, startPos)
     }
 
-    private digAlternationNode(node: AlternationRuleNode, doc: TextDocument, startPos: Position): ({ end: Position, token: Token } | null) {
-        let pos = startPos;
+    private *digAlternationNode(node: AlternationRuleNode, doc: TextDocument, startPos: Position): Generator<{ end: Position, token: Token } > {
         const children = [] as Token[];
         for (let n = 0; n < node.nodes.length; n++) {
-            const r = this.digNode(node.nodes[n], doc, pos);
-            if (r) {
-                // TODO: this is right?
-                // optionやrepeat、alternationも、可能性あるものを全部返す。すると、end違いとかもでてくる。
-                // 上位の検査では、全てのケースをテストしなければならない。
-                return {
+            const iter = this.digNode(node.nodes[n], doc, startPos);
+            for (let y = iter.next(); !y.done; y = iter.next()) {
+                const child = y.value;
+                const range: Range = { start: startPos, end: child.end };
+                yield {
+                    end: child.end,
+                    token: {
+                        range,
+                        rule: "",
+                        text: doc.getText(range),
+                        children: children,
+                    }
                 }
-                if (r.token.rule) {
-                    children.push(r.token);
-                } else {
-                    children.push(...r.token.children)
-                }
-                pos = r.end;
+
             }
         }
-        const range: Range = { start: startPos, end: pos };
-
-        return {
-            end: pos,
-            token: {
-                range,
-                rule: "",
-                text: doc.getText(range),
-                children: children,
-            }
-        };
     }
 }
-i
