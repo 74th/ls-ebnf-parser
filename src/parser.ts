@@ -342,17 +342,17 @@ export class Parser {
     private *digRepeatNode(node: RepeatRuleNode, doc: TextDocument, startPos: Position): digNodeIter {
         let iter = this.digNode(node.node, doc, startPos);
         let children: Token[] = [];
-        const iters: { iter: digNodeIter, prevChildren: Token[], children: Token[], end: Position }[] = [];
+        const iters: { iter: digNodeIter, nPrevChildren: number, end: Position }[] = [];
         for (; ;) {
             const r = iter.next()
             if (!r.done) {
-                const prevChildren = children;
+                const nPrevChildren = children.length;
                 if (r.value.token.rule) {
-                    children = [...children, r.value.token]
+                    children.push(r.value.token)
                 } else {
-                    children = [...children, ...r.value.token.children]
+                    children.push(...r.value.token.children)
                 }
-                iters.push({ iter, prevChildren, children, end: r.value.end });
+                iters.push({ iter, nPrevChildren: nPrevChildren, end: r.value.end });
 
                 iter = this.digNode(node.node, doc, r.value.end);
                 continue;
@@ -374,7 +374,7 @@ export class Parser {
             }
 
             iter = prev.iter;
-            children = prev.prevChildren;
+            children = children.slice(0, prev.nPrevChildren);
         }
     }
 }
