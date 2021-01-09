@@ -264,7 +264,6 @@ export class Parser {
     }
 
     private *digAlternationNode(node: AlternationRuleNode, doc: TextDocument, startPos: Position): Generator<{ end: Position, token: Token } > {
-        const children = [] as Token[];
         for (let n = 0; n < node.nodes.length; n++) {
             const iter = this.digNode(node.nodes[n], doc, startPos);
             for (let y = iter.next(); !y.done; y = iter.next()) {
@@ -276,7 +275,7 @@ export class Parser {
                         range,
                         rule: "",
                         text: doc.getText(range),
-                        children: children,
+                        children: [child.token],
                     }
                 }
 
