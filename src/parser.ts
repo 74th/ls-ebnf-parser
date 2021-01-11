@@ -1,5 +1,5 @@
 import { Token } from "./model/ast";
-import { Rules, RuleNode, Rule, StringRuleNode, GroupRuleNode, ReferenceRuleNode, AlternationRuleNode, OptionRuleNode, RepeatRuleNode } from "./model/rule";
+import { Rules, RuleNode, Rule, StringRuleNode, GroupRuleNode, ReferenceRuleNode, AlternationRuleNode, OptionRuleNode, RepeatRuleNode, RegexRuleNode } from "./model/rule";
 import { Range, Position } from "./model/document";
 import { start } from "repl";
 
@@ -187,6 +187,9 @@ export class Parser {
             case "string":
                 iter = this.digStringNode(node, doc, startPos);
                 break;
+            case "regex":
+                iter = this.digRegexNode(node, doc, startPos);
+                break;
             case "group":
                 iter = this.digGroupNode(node, doc, startPos);
                 break;
@@ -202,7 +205,6 @@ export class Parser {
             case "repeat":
                 iter = this.digRepeatNode(node, doc, startPos);
                 break;
-            case "regex":
             default:
                 return;
         }
@@ -222,6 +224,26 @@ export class Parser {
                     range,
                     rule: "",
                     text: node.text,
+                    children: [],
+                }
+            }
+        }
+    }
+
+    private *digRegexNode(node: RegexRuleNode, doc: TextDocument, startPos: Position): digNodeIter {
+        if (!node.regexp) {
+            node.regexp = new RegExp(node.regex);
+        }
+        const text = doc.getTextFromPosition(startPos, ReadCharacterLength)
+        const r = node.regexp.exec(text)
+        if (r) {
+            const range = doc.getRangeFromPosition(startPos, r[0].length)
+            yield {
+                end: range.end,
+                token: {
+                    range,
+                    rule: "",
+                    text: "",
                     children: [],
                 }
             }

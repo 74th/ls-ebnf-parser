@@ -27,6 +27,7 @@ describe("ParserFullDocument", () => {
         assert.strictEqual(result.children[0].children[0].rule, "item3");
     });
 
+
     it("parse group reference", async () => {
         const ruleDoc = `item1 = item2 item3; item2 = "SELECT"; item3 = "*";`;
         const rules = new RuleParser().Parse(ruleDoc);
@@ -108,5 +109,19 @@ describe("ParserFullDocument", () => {
         } catch (e) {
             // ok
         }
+    });
+
+    it("parse regex node", async () => {
+        const ruleDoc = `item1 = item2 | item3 ; item2 = /\\d+/; item3 = /\\w+/;`;
+        const rules = new RuleParser().Parse(ruleDoc);
+        const parser = new Parser(rules);
+        const result1 = parser.ParseFullDocument(`12345`);
+        assert.strictEqual(result1.text, "12345");
+        assert.strictEqual(result1.rule, "item1");
+        assert.strictEqual(result1.children.length, 1);
+        assert.strictEqual(result1.children[0].text, "12345");
+        const result2 = parser.ParseFullDocument(`abcde`);
+        assert.strictEqual(result2.children.length, 1);
+        assert.strictEqual(result2.children[0].text, "abcde");
     });
 });

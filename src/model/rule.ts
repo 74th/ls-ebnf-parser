@@ -25,6 +25,7 @@ export interface StringRuleNode {
 export interface RegexRuleNode {
     type: "regex"
     regex: string
+    regexp?: RegExp
 }
 
 export interface AlternationRuleNode {

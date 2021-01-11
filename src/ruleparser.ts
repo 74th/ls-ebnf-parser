@@ -98,9 +98,9 @@ export class RuleParser {
                 continue;
             }
 
-            if (fragment.match(/^\/.*\//)) {
+            if (fragment.match(/^\//)) {
                 // regex
-                const r = this.parseCharacterNode(fragment);
+                const r = this.parseRegexNode(fragment);
                 fragment = r.fragment;
                 nodes.push(r.node);
                 continue;
@@ -260,32 +260,23 @@ export class RuleParser {
         throw new parseError("parse error", fragment.length);
     }
 
-    private parseCharacterNode(
+    private parseRegexNode(
         fragment: string
     ): { node: RuleNode; fragment: string } {
-        let escaped = false;
         let text = "";
         for (let i = 1; i < fragment.length; i++) {
-            if (escaped) {
-                escaped = false;
-                text += fragment[i];
-            } else {
-                switch (fragment[i]) {
-                    case "/":
-                        return {
-                            node: {
-                                type: "regex",
-                                regex: text,
-                            },
-                            fragment: fragment.substr(i + 1),
-                        };
-                        break;
-                    case "\\":
-                        escaped = true;
-                        break;
-                    default:
-                        text += fragment[i];
-                }
+            switch (fragment[i]) {
+                case "/":
+                    return {
+                        node: {
+                            type: "regex",
+                            regex: text,
+                        },
+                        fragment: fragment.substr(i + 1),
+                    };
+                    break;
+                default:
+                    text += fragment[i];
             }
         }
         throw new parseError("parse error", fragment.length);
