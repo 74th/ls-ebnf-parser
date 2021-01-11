@@ -136,7 +136,7 @@ export class Parser {
         });
         this.tokenExcludeRules = {};
         rules.tokenExcludeRules.forEach((name) => {
-            this.tokenExcludeRules[name] = false;
+            this.tokenExcludeRules[name] = true;
         });
         this.rootRule = this.rules[rules.rootRule];
     }

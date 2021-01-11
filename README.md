@@ -26,8 +26,8 @@ tables = /\w+/;
 const ruleParser = new RuleParser();
 const ebnf = (await fs.readFile("test/sql/sql.ebnf")).toString();
 const rules = ruleParser.Parse(ebnf);
+rules.tokenExcludeRules = ["SP"];
 const parser = new Parser(rules);
-parser.tokenExcludeRules["SP"] = true;
 
 const r = parser.ParseFullDocument("SELECT row1, row2, row3 FROM table1");
 
