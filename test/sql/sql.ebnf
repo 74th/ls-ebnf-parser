@@ -1,0 +1,8 @@
+sql = select;
+SP = /\s+/;
+select = "SELECT" SP rows SP "FROM" SP tables;
+rows = row { [ SP ] "," SP row } | "*";
+row = table_column_name [ SP "AS" SP as_row_name ];
+table_column_name = /\w+/;
+as_row_name = /\w+/;
+tables = /\w+/;

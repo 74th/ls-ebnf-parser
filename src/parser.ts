@@ -1,7 +1,6 @@
 import { Token } from "./model/ast";
 import { Rules, RuleNode, Rule, StringRuleNode, GroupRuleNode, ReferenceRuleNode, AlternationRuleNode, OptionRuleNode, RepeatRuleNode, RegexRuleNode } from "./model/rule";
 import { Range, Position } from "./model/document";
-import { start } from "repl";
 
 type digNodeIter = Generator<{ end: Position, token: Token }>
 
