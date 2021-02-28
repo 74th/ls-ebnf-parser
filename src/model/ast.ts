@@ -1,4 +1,4 @@
-import { Range } from "./document";
+import {Range} from './document';
 export interface Token {
     rule: string;
     text: string;

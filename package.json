@@ -21,12 +21,20 @@
     "eslint": "^7.17.0",
     "mocha": "^8.2.1",
     "prettier": "^2.2.1",
-    "ts-node": "^9.1.1"
+    "ts-node": "^9.1.1",
+    "gts": "^3.1.0",
+    "typescript": "^4.0.3",
+    "@types/node": "^14.11.2"
   },
   "scripts": {
     "build": "tsc -p ./tsconfig.base.json",
-    "prepare": "npm run build",
-    "lint": "eslint src/*.ts",
-    "lint:fix": "eslint --fix src/index.ts"
+    "prepare": "yarn run compile",
+    "lint": "gts lint",
+    "lint:fix": "eslint --fix src/index.ts",
+    "clean": "gts clean",
+    "compile": "tsc",
+    "fix": "gts fix",
+    "pretest": "yarn run compile",
+    "posttest": "yarn run lint"
   }
 }
