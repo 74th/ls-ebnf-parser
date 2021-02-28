@@ -258,7 +258,6 @@ export class RuleParser {
                             },
                             fragment: fragment.substr(i + 1),
                         };
-                        break;
                     case '\\':
                         escaped = true;
                         break;
@@ -284,7 +283,6 @@ export class RuleParser {
                         },
                         fragment: fragment.substr(i + 1),
                     };
-                    break;
                 default:
                     text += fragment[i];
             }
