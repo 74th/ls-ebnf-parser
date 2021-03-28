@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "description": "ebnf parser for language server",
   "main": "build/index.js",
+  "types": "build/index.d.ts",
   "repository": "https://github.com/74th/ls-ebnf-parser.git",
   "author": "Atsushi Morimoto (74th) <site@74th.tech>",
   "license": "MIT",
